@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>配對模擬遊戲</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h1 { color: #333; }
+    label, input { margin: 8px 0; display: block; }
+    button { padding: 8px 16px; margin-top: 10px; }
+    .log { margin-top: 20px; white-space: pre-wrap; background: #f5f5f5; padding: 10px; border-radius: 6px; }
+    .rules { background: #eef; padding: 10px; border-radius: 6px; margin-top: 20px; }
+  </style>
+</head>
+<body>
+  <h1>迷了路，也迷了人?理工男也能得到愛情嗎?</h1>
+
+  <div class="rules">
+    <h3>📜 遊戲規則說明：</h3>
+    <p>本遊戲模擬男參加者在兩關選擇與互動後，是否能成功與心儀女生配對。</p>
+
+    <p>🔹 <strong>第一關卡：答題選門</strong><br>
+    男參加者面對四扇門：A、B、C、D。<br>
+    他先選一扇門（如 A），接著會看到題目。<br>
+    看完題目後，他可以選擇是否更換一次門（例如改選 C）。<br>
+    若回答正確，則進入第二關；若答錯則淘汰。</p>
+
+    <p>🔹 <strong>第二關卡：女生選擇</strong><br>
+    每一扇第一關的門，會對應到不同的女生分組組合（兩扇門）：</p>
+    <table border="1" cellpadding="6">
+      <tr><th>第一關門</th><th>對應第二關兩道門的提示(門後女生的共通點)</th></tr>
+      <tr><td>A</td><td>[K-pop] 和 [同年紀]</td></tr>
+      <tr><td>B</td><td>[早上沒事，晚上台中市] 和 [化妝後五官深邃]</td></tr>
+      <tr><td>C</td><td>[身高173cm] 和 [很會跳舞]</td></tr>
+      <tr><td>D</td><td>[歪國人] 和 [愛你] </td></tr>
+    </table>
+
+    <p>流程如下：</p>
+    <ul>
+      <li>男生面對這兩扇門，選一扇打開 → 看見裡面的女生們。</li>
+      <li>每位女生各自決定是否對這位男生說 "Yes"（機率 p_yes）。</li>
+      <li>若所有女生都說 "No"，則配對失敗。</li>
+      <li>若只有一位說 "Yes"，則直接配對成功。</li>
+      <li>若有兩位都說 "Yes"，男生可以從中選一位喜歡的女生 → 配對成功。</li>
+    </ul>
+
+<img src="Summer Vibes.jpg" alt="girls" width="500" height="500">
+
+    <p><strong>女生個別同意配對的機率如下：</strong></p>
+    <ul>
+      <li>1 號 張員瑛：50%</li>
+      <li>2 號 LISA：70%</li>
+      <li>3 號 王心凌：40%</li>
+      <li>4 號 安海瑟薇：20%</li>
+    </ul>
+  </div>
+
+  <label for="rounds">模擬次數(沒有次數限制，但是你要有耐心，若是失敗就是設備問題)：</label>
+  <input type="number" id="rounds" value="10">
+
+  <label for="pCorrect">第一關答對機率（0~1）：</label>
+  <input type="number" id="pCorrect" value="0.7" step="0.01">
+
+  <label for="pSwitch">是否換門機率（0~1）：</label>
+  <input type="number" id="pSwitch" value="0.5" step="0.01">
+
+  <button onclick="runSimulation()">開始模擬</button>
+
+  <div class="log" id="output"></div>
+
+  <script>
+    const girls = {
+      1: { name: "張員瑛", prob: 0.5 },
+      2: { name: "LISA", prob: 0.7 },
+      3: { name: "王心凌", prob: 0.4 },
+      4: { name: "安海瑟薇", prob: 0.2 },
+    };
+
+    const secondGateMapping = {
+      A: [[1, 2], [3, 4]],
+      B: [[1, 3], [2, 4]],
+      C: [[1, 4], [2, 3]],
+      D: [[1, 2, 4], [3]]
+    };
+
+    function girlResponse(id) {
+      return Math.random() < girls[id].prob;
+    }
+
+    function simulateOne(pCorrect, pSwitch) {
+      const doors = ['A', 'B', 'C', 'D'];
+      const initial = doors[Math.floor(Math.random() * 4)];
+      const change = Math.random() < pSwitch;
+      const final = change ? doors.filter(d => d !== initial)[Math.floor(Math.random() * 3)] : initial;
+
+      let log = `\n>>> 男生選擇門 ${initial}${change ? ` → 換成門 ${final}` : ''}`;
+
+      if (Math.random() >= pCorrect) {
+        log += `\n第一關答錯，淘汰。`;
+        return { door: final, success: false, girl: null, log };
+      }
+
+      const groupOptions = secondGateMapping[final];
+      const chosenGroup = groupOptions[Math.floor(Math.random() * groupOptions.length)];
+      log += `\n第二關遇到女生：` + chosenGroup.map(id => `${girls[id].name}`).join('、');
+
+      const yesGirls = chosenGroup.filter(id => girlResponse(id));
+      if (yesGirls.length === 0) {
+        log += `\n→ 所有女生說 No，配對失敗。`;
+        return { door: final, success: false, girl: null, log };
+      } else {
+        const chosen = yesGirls[Math.floor(Math.random() * yesGirls.length)];
+        log += `\n→ ${yesGirls.map(id => girls[id].name).join('、')} 說 Yes，男生選擇了 ${girls[chosen].name} → 成功！`;
+        return { door: final, success: true, girl: chosen, log };
+      }
+    }
+
+    function runSimulation() {
+      const rounds = parseInt(document.getElementById('rounds').value);
+      const pCorrect = parseFloat(document.getElementById('pCorrect').value);
+      const pSwitch = parseFloat(document.getElementById('pSwitch').value);
+
+      const girlStats = {
+        1: { name: girls[1].name, count: 0 },
+        2: { name: girls[2].name, count: 0 },
+        3: { name: girls[3].name, count: 0 },
+        4: { name: girls[4].name, count: 0 }
+      };
+
+      let totalSuccess = 0;
+      let logs = [];
+
+      for (let i = 0; i < rounds; i++) {
+        const sim = simulateOne(pCorrect, pSwitch);
+        if (sim.success) {
+          totalSuccess++;
+          if (sim.girl) girlStats[sim.girl].count++;
+        }
+        logs.push(`第 ${i + 1} 回合：` + sim.log);
+      }
+
+      let summary = `\n==== 各女生與男生配對成功次數 ====`;
+      for (const id in girlStats) {
+        const rate = (girlStats[id].count / rounds * 100).toFixed(2);
+        summary += `\n${girlStats[id].name}：${girlStats[id].count} 次（${rate}%）`;
+      }
+
+      const overallRate = (totalSuccess / rounds * 100).toFixed(2);
+      summary += `\n\n==== 男參加者整體成功率：${overallRate}% (${totalSuccess}/${rounds}) ====`;
+
+      const mostMatched = Object.values(girlStats).reduce((a, b) => (a.count >= b.count ? a : b), { name: "（無）", count: -1 });
+      summary += `\n\n🎯 結論：在本次模擬中，男參加者與 ${mostMatched.name} 配對最成功。換門與答對機率會明顯影響整體成功率與配對對象分布。`;
+
+      document.getElementById('output').textContent = logs.join('\n') + summary;
+    }
+  </script>
+</body>
+</html>
