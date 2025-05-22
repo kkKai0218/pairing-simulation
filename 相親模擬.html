@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <title>配對模擬遊戲</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h1 { color: #333; }
+    label, input { margin: 8px 0; display: block; }
+    button { padding: 8px 16px; margin-top: 10px; }
+    .log { margin-top: 20px; white-space: pre-wrap; background: #f5f5f5; padding: 10px; border-radius: 6px; }
+    table { margin-top: 20px; border-collapse: collapse; width: 100%; }
+    th, td { border: 1px solid #ccc; padding: 8px; text-align: center; }
+    th { background-color: #f0f0f0; }
+  </style>
+</head>
+<body>
+  <h1>配對模擬遊戲（含配對過程紀錄與女生統計）</h1>
+
+  <label for="rounds">模擬次數：</label>
+  <input type="number" id="rounds" value="10">
+
+  <label for="pCorrect">第一關答對機率（0~1）：</label>
+  <input type="number" id="pCorrect" value="0.7" step="0.01">
+
+  <label for="pSwitch">是否換門機率（0~1）：</label>
+  <input type="number" id="pSwitch" value="0.5" step="0.01">
+
+  <button onclick="runSimulation()">開始模擬</button>
+
+  <div class="log" id="output"></div>
+
+  <table id="girlStats">
+    <thead>
+      <tr><th>女生</th><th>配對成功次數</th><th>被配對次數</th><th>成功率 (%)</th></tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <script>
+    const girls = {
+      1: { name: "張員瑛", prob: 0.5 },
+      2: { name: "LISA", prob: 0.7 },
+      3: { name: "王心凌", prob: 0.4 },
+      4: { name: "安海瑟薇", prob: 0.2 },
+    };
+
+    const secondGateMapping = {
+      A: [[1, 2], [3, 4]],
+      B: [[1, 3], [2, 4]],
+      C: [[1, 4], [2, 3]],
+      D: [[1, 2, 4], [3]]
+    };
+
+    function girlResponse(id) {
+      return Math.random() < girls[id].prob;
+    }
+
+    function simulateOne(pCorrect, pSwitch, girlStats) {
+      const doors = ['A', 'B', 'C', 'D'];
+      const initial = doors[Math.floor(Math.random() * 4)];
+      const change = Math.random() < pSwitch;
+      const final = change ? doors.filter(d => d !== initial)[Math.floor(Math.random() * 3)] : initial;
+
+      let log = `\n>>> 男生選擇門 ${initial}${change ? ` → 換成門 ${final}` : ''}`;
+
+      if (Math.random() >= pCorrect) {
+        log += `\n第一關答錯，淘汰。`;
+        return { door: final, success: false, log };
+      }
+
+      const groupOptions = secondGateMapping[final];
+      const chosenGroup = groupOptions[Math.floor(Math.random() * groupOptions.length)];
+      log += `\n第二關遇到女生：` + chosenGroup.map(id => girls[id].name).join('、');
+
+      chosenGroup.forEach(id => girlStats[id].total++);
+
+      const yesGirls = chosenGroup.filter(id => girlResponse(id));
+      if (yesGirls.length === 0) {
+        log += `\n→ 所有女生說 No，配對失敗。`;
+        return { door: final, success: false, log };
+      } else if (yesGirls.length === 1) {
+        const g = yesGirls[0];
+        girlStats[g].success++;
+        log += `\n→ ${girls[g].name} 說 Yes，配對成功！`;
+        return { door: final, success: true, log };
+      } else {
+        const chosen = yesGirls[Math.floor(Math.random() * yesGirls.length)];
+        girlStats[chosen].success++;
+        log += `\n→ ${yesGirls.map(id => girls[id].name).join('、')} 說 Yes，男生選擇了 ${girls[chosen].name} → 成功！`;
+        return { door: final, success: true, log };
+      }
+    }
+
+    function runSimulation() {
+      const rounds = parseInt(document.getElementById('rounds').value);
+      const pCorrect = parseFloat(document.getElementById('pCorrect').value);
+      const pSwitch = parseFloat(document.getElementById('pSwitch').value);
+
+      const result = { A: { total: 0, success: 0 }, B: { total: 0, success: 0 }, C: { total: 0, success: 0 }, D: { total: 0, success: 0 } };
+      const girlStats = {
+        1: { name: girls[1].name, success: 0, total: 0 },
+        2: { name: girls[2].name, success: 0, total: 0 },
+        3: { name: girls[3].name, success: 0, total: 0 },
+        4: { name: girls[4].name, success: 0, total: 0 },
+      };
+
+      let logs = [];
+
+      for (let i = 0; i < rounds; i++) {
+        const sim = simulateOne(pCorrect, pSwitch, girlStats);
+        result[sim.door].total++;
+        if (sim.success) result[sim.door].success++;
+        logs.push(`第 ${i + 1} 回合：` + sim.log);
+      }
+
+      let summary = `\n==== 各門配對成功率 ====\n`;
+      for (const door of ['A', 'B', 'C', 'D']) {
+        const r = result[door];
+        const rate = r.total > 0 ? ((r.success / r.total) * 100).toFixed(2) : '0.00';
+        summary += `門 ${door}：${rate}% (${r.success}/${r.total})\n`;
+      }
+
+      document.getElementById('output').textContent = logs.join('\n') + '\n' + summary;
+
+      // 更新女生統計表
+      const tbody = document.querySelector('#girlStats tbody');
+      tbody.innerHTML = '';
+      Object.entries(girlStats).forEach(([id, g]) => {
+        const successRate = g.total > 0 ? (g.success / g.total * 100).toFixed(2) : '0.00';
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td>${g.name}</td><td>${g.success}</td><td>${g.total}</td><td>${successRate}</td>`;
+        tbody.appendChild(tr);
+      });
+    }
+  </script>
+</body>
+</html>
